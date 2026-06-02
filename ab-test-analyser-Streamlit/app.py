@@ -367,7 +367,7 @@ def build_app() -> None:
         st.write(f"- {step}")
 
     st.markdown(
-        "Project 4 of 6 · Data & Business Analyst Portfolio · "
+        "Data & Business Analyst Portfolio · "
         "Data: E-Commerce A/B Testing Dataset (Kaggle) · "
         "[View source on GitHub](https://github.com/KOBBY-IM/ab-test-analyser)"
     )
