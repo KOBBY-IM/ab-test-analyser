@@ -30,66 +30,42 @@ def recommendation_text(results: dict) -> tuple[str, list[str]]:
     rates = results["conversion_rates"]
     power = results["power"]
     sample = results["sample_sizes"]
+    p_better = bayes.get("prob_treatment_better", 50)
 
-    if freq["is_significant"] and rates["treatment_rate"] > rates["control_rate"] and bayes.get(
-        "prob_treatment_better", 0
-    ) > 95:
-        text = (
-            "✅ DEPLOY — Both statistical approaches confirm the new page performs "
-            f"significantly better. The treatment group converted at {rates['treatment_rate']:.2%} "
-            f"vs {rates['control_rate']:.2%} for the control (absolute lift: +{rates['absolute_lift']:.2%}, "
-            f"relative lift: +{rates['relative_lift']:.1f}%). P(treatment better) = "
-            f"{bayes['prob_treatment_better']:.1f}% (Bayesian). Recommendation: deploy the new page."
+    if freq["is_significant"] and rates["treatment_rate"] > rates["control_rate"] and p_better > 95:
+        return (
+            f"✅ DEPLOY — Both approaches confirm the new page is significantly better. "
+            f"Treatment: {rates['treatment_rate']:.2%} vs control: {rates['control_rate']:.2%} "
+            f"(+{rates['absolute_lift']:.2%} absolute, +{rates['relative_lift']:.1f}% relative). "
+            f"P(treatment better) = {p_better:.1f}%.",
+            [
+                "Monitor post-rollout conversion and guardrail metrics daily.",
+                "Run a phased rollout to validate sustained impact.",
+                "Document experiment setup and expected business value.",
+            ],
         )
-        next_steps = [
-            "Monitor post-rollout conversion and guardrail metrics daily.",
-            "Run a holdout or phased rollout to validate sustained impact.",
-            "Document experiment setup and expected business value.",
-        ]
-        return text, next_steps
 
-    if (
-        not freq["is_significant"]
-        and bayes.get("prob_treatment_better", 50) <= 80
-        and bayes.get("prob_treatment_better", 50) >= 20
-    ):
-        text = (
-            "⏸️ CONTINUE TESTING — Neither approach detected a significant difference. "
-            f"Current power: {power['observed_power']:.0%}. To detect the observed effect at 80% power, "
-            f"you need {power['required_n_per_group']:,} users per group. Currently have "
-            f"{sample['n_control']:,}. Recommendation: run the test longer or redesign the experiment."
+    if freq["is_significant"] and rates["treatment_rate"] < rates["control_rate"] and p_better < 50:
+        return (
+            "❌ DO NOT DEPLOY — The new page performs significantly worse. Investigate and redesign before retesting.",
+            [
+                "Run qualitative UX review and session replay diagnostics.",
+                "Analyse drop-off steps by device and traffic source.",
+                "Design a new hypothesis and retest with clean instrumentation.",
+            ],
         )
-        next_steps = [
+
+    req_n = f"{power['required_n_per_group']:,}" if power["required_n_per_group"] else "unknown"
+    return (
+        f"⏸️ CONTINUE TESTING — No significant difference detected. "
+        f"Current power: {power['observed_power']:.0%}. For 80% power you need {req_n} users per group "
+        f"(currently {sample['n_control']:,}). Run longer or redesign the experiment.",
+        [
             "Increase sample size and predefine a stopping rule.",
             "Audit event instrumentation and funnel consistency.",
             "Test a stronger variant with larger expected lift.",
-        ]
-        return text, next_steps
-
-    if freq["is_significant"] and rates["treatment_rate"] < rates["control_rate"] and bayes.get(
-        "prob_treatment_better", 100
-    ) < 50:
-        text = "❌ DO NOT DEPLOY — The new page performs significantly worse. Recommendation: investigate why and redesign before retesting."
-        next_steps = [
-            "Run qualitative UX review and session replay diagnostics.",
-            "Analyze drop-off steps by device and traffic source.",
-            "Design a new hypothesis and retest with clean instrumentation.",
-        ]
-        return text, next_steps
-
-    freq_result = "significant" if freq["is_significant"] else "not significant"
-    text = (
-        "⚠️ MIXED SIGNALS — Frequentist test shows "
-        f"{freq_result} while Bayesian analysis shows {bayes.get('bayesian_verdict', 'inconclusive')}. "
-        "This typically occurs with borderline results near the significance threshold. "
-        "Recommendation: treat as inconclusive and collect more data."
+        ],
     )
-    next_steps = [
-        "Collect additional observations before making rollout decisions.",
-        "Run sensitivity checks with segment-level and robustness analyses.",
-        "Reconfirm hypothesis, success metric, and minimum detectable effect.",
-    ]
-    return text, next_steps
 
 
 def build_app() -> None:
@@ -282,8 +258,8 @@ def build_app() -> None:
                 pdf_fig = go.Figure()
                 pdf_fig.add_trace(go.Scatter(x=x, y=control_pdf, fill="tozeroy", name="Control", line=dict(color=GREY)))
                 pdf_fig.add_trace(go.Scatter(x=x, y=treatment_pdf, fill="tozeroy", name="Treatment", line=dict(color=PRIMARY)))
-                pdf_fig.add_vline(x=float(np.mean(bayes["simulation_samples_control"])), line_dash="dash", line_color=GREY)
-                pdf_fig.add_vline(x=float(np.mean(bayes["simulation_samples_treatment"])), line_dash="dash", line_color=PRIMARY)
+                pdf_fig.add_vline(x=bayes["posterior_mean_control"], line_dash="dash", line_color=GREY)
+                pdf_fig.add_vline(x=bayes["posterior_mean_treatment"], line_dash="dash", line_color=PRIMARY)
                 pdf_fig.update_layout(
                     title="Posterior Distributions — Beta-Binomial Model",
                     template="plotly_white",
