@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>A/B Test Analyser · Project 04</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+/* CSS VARIABLES — portfolio colour system */
+:root {
+  --ink:        #0D0D0D;
+  --paper:      #FAF9F6;
+  --accent:     #1A5CFF;
+  --accent-dim: #E8EEFF;
+  --muted:      #6B6B6B;
+  --border:     #E2E0DB;
+  --success:    #1D9E75;
+  --warn:       #BA7517;
+  --danger:     #E24B4A;
+  --surface:    #F3F2EE;
+  --radius:     8px;
+  --shadow:     0 2px 12px rgba(0,0,0,.07);
+}
+
+/* RESET & BASE */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--paper);
+  overflow-x: hidden;
+}
+h1, h2, h3, h4 { font-family: 'DM Serif Display', serif; line-height: 1.2; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { cursor: pointer; font-family: 'DM Sans', sans-serif; }
+input { font-family: 'DM Sans', sans-serif; }
+
+/* SCROLL REVEAL */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity .55s ease, transform .55s ease;
+}
+.reveal.visible { opacity: 1; transform: none; }
+
+/* STICKY NAV */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nav-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.05rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+.nav-back {
+  font-size: .875rem;
+  color: var(--muted);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color .2s;
+}
+.nav-back:hover { color: var(--accent); text-decoration: none; }
+
+/* HERO */
+.hero {
+  padding: 80px 40px 64px;
+  max-width: 860px;
+  margin: 0 auto;
+  text-align: left;
+}
+.hero-label {
+  font-size: .78rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  margin-bottom: 16px;
+}
+.hero-sub {
+  font-size: 1.05rem;
+  color: var(--muted);
+  max-width: 640px;
+  margin-bottom: 36px;
+  line-height: 1.7;
+}
+.hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  font-size: .9rem;
+  font-weight: 500;
+  border: 1.5px solid transparent;
+  transition: all .2s;
+}
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-accent:hover { background: #1349d4; border-color: #1349d4; }
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--border);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-sm { padding: 8px 16px; font-size: .82rem; }
+
+/* MAIN CONTAINER */
+.container {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 40px 80px;
+}
+
+/* SECTION LABEL + HEADING */
+.section { margin-bottom: 72px; }
+.section-label {
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.section-heading {
+  font-size: 1.7rem;
+  margin-bottom: 24px;
+}
+
+/* DROP ZONE */
+.drop-zone {
+  border: 2px dashed var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 48px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.drop-zone-icon { font-size: 2rem; margin-bottom: 12px; }
+.drop-zone h3 { font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 500; margin-bottom: 6px; }
+.drop-zone p { font-size: .83rem; color: var(--muted); }
+#file-input { display: none; }
+
+/* ETL STEPS */
+#etl-steps {
+  display: none;
+  margin-top: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.etl-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: .9rem;
+  opacity: .35;
+  transition: opacity .3s;
+}
+.etl-step:last-child { border-bottom: none; }
+.etl-step.active { opacity: 1; }
+.etl-step.done { opacity: 1; }
+.etl-badge {
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.etl-status { margin-left: auto; font-size: 1rem; }
+
+/* METRIC CARDS */
+.cards-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+.cards-4 { grid-template-columns: repeat(4, 1fr); }
+.cards-2 { grid-template-columns: repeat(2, 1fr); }
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.card-label {
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.card-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.9rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.card-sub { font-size: .8rem; color: var(--muted); }
+.card-positive { color: var(--success); }
+.card-negative { color: var(--danger); }
+
+/* CALLOUT BOXES */
+.callout {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-dim);
+  padding: 16px 20px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: .88rem;
+  line-height: 1.6;
+  margin-top: 20px;
+}
+.callout-warn { border-color: var(--warn); background: #FFF8E7; }
+.callout-danger { border-color: var(--danger); background: #FFF0F0; }
+.callout-success { border-color: var(--success); background: #E9FBF4; }
+
+/* CHART WRAPPER */
+.chart-wrap {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  margin-top: 24px;
+  position: relative;
+}
+.chart-title {
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 28px;
+}
+.tab-btn {
+  padding: 10px 24px;
+  font-size: .9rem;
+  font-weight: 500;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--muted);
+  transition: all .2s;
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-btn:hover { color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn .25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* VERDICT BOX */
+.verdict {
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 28px;
+}
+.verdict-positive { background: #C6EFCE; border: 1px solid #9BDA9F; }
+.verdict-negative { background: #FFC7CE; border: 1px solid #F4A1A1; }
+.verdict-neutral  { background: #FFEB9C; border: 1px solid #F5D56A; }
+.verdict-text {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+.verdict-meta { font-size: .83rem; color: var(--muted); }
+
+/* TWO COLUMN LAYOUT */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* P-VALUE VISUAL */
+.pval-bar-wrap { position: relative; padding: 20px 0 8px; }
+.pval-track {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--border);
+}
+.pval-sig-region {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: #C6EFCE;
+  border-radius: 6px 0 0 6px;
+}
+.pval-alpha-line {
+  position: absolute;
+  top: -4px; bottom: -4px;
+  width: 2px;
+  background: var(--danger);
+  left: 5%;
+}
+.pval-alpha-label {
+  position: absolute;
+  top: -18px;
+  font-size: .7rem;
+  color: var(--danger);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  left: 5%;
+}
+.pval-marker {
+  position: absolute;
+  top: -6px;
+  width: 14px; height: 24px;
+  background: var(--accent);
+  border-radius: 3px;
+  transform: translateX(-50%);
+}
+.pval-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.pval-plain { font-size: .85rem; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+
+/* EFFECT SIZE + POWER BADGES */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.badge-negligible { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+.badge-small  { background: #FFEB9C; color: #7A5C00; }
+.badge-medium { background: #C6EFCE; color: #1A5C30; }
+.badge-large  { background: var(--accent-dim); color: var(--accent); }
+
+.power-bar-wrap { margin-top: 8px; }
+.power-track {
+  height: 10px;
+  background: var(--surface);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin: 8px 0;
+}
+.power-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width .6s ease;
+}
+.power-green { background: var(--success); }
+.power-amber { background: var(--warn); }
+.power-red   { background: var(--danger); }
+
+/* BAYESIAN GAUGE SVG */
+.gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+}
+.gauge-svg { width: 200px; height: 130px; }
+.gauge-number {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2.2rem;
+  margin-top: -8px;
+}
+.gauge-label { font-size: .82rem; color: var(--muted); text-align: center; margin-top: 4px; }
+
+/* EXPECTED LOSS TABLE */
+.loss-table { width: 100%; border-collapse: collapse; font-size: .88rem; margin-top: 16px; }
+.loss-table th, .loss-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.loss-table th { font-weight: 600; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .07em; }
+.loss-table .highlight { background: #E9FBF4; font-weight: 600; color: var(--success); }
+
+/* SECTION 4 — AI INTERPRETATION */
+.ai-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+}
+.ai-icon { font-size: 2rem; margin-bottom: 12px; }
+.ai-box h3 { font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; }
+.ai-box p { font-size: .9rem; color: var(--muted); margin-bottom: 16px; line-height: 1.65; }
+.key-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .9rem;
+  color: var(--ink);
+  background: #fff;
+  margin-bottom: 6px;
+  transition: border-color .2s;
+}
+.key-input:focus { outline: none; border-color: var(--accent); }
+.key-hint { font-size: .78rem; color: var(--muted); margin-bottom: 16px; }
+.key-hint a { color: var(--accent); }
+.divider-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--muted);
+  font-size: .82rem;
+}
+.divider-or::before, .divider-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.ai-loading { text-align: center; padding: 32px; }
+.dots { display: inline-block; }
+.ai-response {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  position: relative;
+  line-height: 1.7;
+}
+.ai-response h2, .ai-response h3 { font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 600; margin: 16px 0 6px; }
+.ai-response p { font-size: .9rem; color: #333; margin-bottom: 12px; }
+.ai-response ul { padding-left: 20px; margin-bottom: 12px; }
+.ai-response li { font-size: .9rem; margin-bottom: 4px; }
+.ai-badge {
+  display: inline-block;
+  font-size: .7rem;
+  color: var(--muted);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  margin-top: 16px;
+}
+.ai-error {
+  background: #FFF0F0;
+  border: 1px solid #F4A1A1;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+}
+.ai-error h4 { color: var(--danger); margin-bottom: 8px; }
+.ai-error p, .ai-error li { font-size: .87rem; color: #555; }
+.ai-error ul { padding-left: 18px; margin-top: 8px; }
+
+/* SECTION 5 — RECOMMENDATION */
+.memo {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 36px 40px;
+  box-shadow: var(--shadow);
+}
+.memo-header {
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--muted);
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.memo-headline {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+}
+.memo-body { font-size: .92rem; color: #333; line-height: 1.7; margin-bottom: 20px; }
+.memo-steps { list-style: none; padding: 0; }
+.memo-steps li {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: .9rem;
+}
+.memo-steps li:last-child { border-bottom: 1px solid var(--border); }
+.step-num {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: .75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: .8rem;
+  color: var(--muted);
+}
+
+/* HIDDEN STATE */
+.hidden { display: none !important; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  nav { padding: 0 20px; }
+  .hero { padding: 48px 20px 40px; }
+  .container { padding: 0 20px 60px; }
+  .cards-4 { grid-template-columns: 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+  .memo { padding: 24px 20px; }
+  footer { padding: 20px; flex-direction: column; text-align: center; }
+}
+@media (max-width: 480px) {
+  .cards-4 { grid-template-columns: 1fr; }
+  .cards-2 { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 1.8rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">A/B Test Analyser</a>
+  <a class="nav-back" href="../index.html"><!-- EDIT: replace with real URL -->← Back to Portfolio</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero reveal">
+  <p class="hero-label">Project 04 · Statistical Analysis Tool</p>
+  <h1>A/B Test Analyser</h1>
+  <p class="hero-sub">Upload experiment data. Get statistical significance, confidence intervals, effect size, and a plain-English verdict — using frequentist z-testing, Bayesian simulation, and AI interpretation.</p>
+  <div class="hero-actions">
+    <button class="btn btn-accent" onclick="document.getElementById('file-input').click()">↑ Upload CSV</button>
+    <button class="btn btn-ghost" onclick="loadSampleData()">Load Sample Data</button>
+  </div>
+</section>
+
+<input type="file" id="file-input" accept=".csv"/>
+
+<main class="container">
+
+  <!-- 
+       SECTION 1 — DATA QUALITY REPORT
+        -->
+  <section class="section reveal" id="section-data">
+    <p class="section-label">Section 01</p>
+    <h2 class="section-heading">Data Quality Report</h2>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="drop-zone-icon">📂</div>
+      <h3>Drop ab_data.csv here or click to browse</h3>
+      <p>Columns required: user_id · group · landing_page · converted</p>
+    </div>
+
+    <!-- ETL Animation Steps -->
+    <div id="etl-steps">
+      <div class="etl-step" id="step-extract">
+        <span class="etl-badge">EXTRACT</span>
+        <span>Loading rows from CSV...</span>
+        <span class="etl-status" id="s1-icon">⏳</span>
+      </div>
+      <div class="etl-step" id="step-validate">
+        <span class="etl-badge">VALIDATE</span>
+        <span>Detecting mismatches and duplicates...</span>
+        <span class="etl-status" id="s2-icon">⏳</span>
+      </div>
+      <div class="etl-step" id="step-transform">
+        <span class="etl-badge">TRANSFORM</span>
+        <span>Computing conversion rates...</span>
+        <span class="etl-status" id="s3-icon">⏳</span>
+      </div>
+      <div class="etl-step" id="step-ready">
+        <span class="etl-badge">READY</span>
+        <span>Analysis complete</span>
+        <span class="etl-status" id="s4-icon">⏳</span>
+      </div>
+    </div>
+
+    <!-- Quality Metric Cards -->
+    <div class="cards-grid cards-4 hidden" id="quality-cards">
+      <div class="card">
+        <p class="card-label">Raw Rows Loaded</p>
+        <p class="card-value" id="q-raw">—</p>
+        <p class="card-sub">from CSV file</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Mismatches Removed</p>
+        <p class="card-value" id="q-mismatch">—</p>
+        <p class="card-sub" id="q-mismatch-pct">of total rows</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Duplicates Removed</p>
+        <p class="card-value" id="q-dupes">—</p>
+        <p class="card-sub">user_id deduplicated</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Clean Rows Used</p>
+        <p class="card-value" id="q-clean">—</p>
+        <p class="card-sub">for analysis</p>
+      </div>
+    </div>
+
+    <!-- Mismatch Explanation -->
+    <div class="callout hidden" id="mismatch-callout">
+      <strong>What are mismatches?</strong> Mismatches are rows where a control user was shown the new page or a treatment user was shown the old page — experimental contamination that must be removed before any statistics are run.
+    </div>
+  </section>
+
+  <!-- 
+       SECTION 2 — EXPERIMENT OVERVIEW
+        -->
+  <section class="section hidden reveal" id="section-overview">
+    <p class="section-label">Section 02</p>
+    <h2 class="section-heading">Experiment Overview</h2>
+
+    <div class="cards-grid cards-4">
+      <div class="card">
+        <p class="card-label">Control</p>
+        <p class="card-value" id="ov-c-n">—</p>
+        <p class="card-sub" id="ov-c-rate">— conversion</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Treatment</p>
+        <p class="card-value" id="ov-t-n">—</p>
+        <p class="card-sub" id="ov-t-rate">— conversion</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Absolute Lift</p>
+        <p class="card-value" id="ov-abs">—</p>
+        <p class="card-sub">percentage points</p>
+      </div>
+      <div class="card">
+        <p class="card-label">Relative Lift</p>
+        <p class="card-value" id="ov-rel">—</p>
+        <p class="card-sub">vs control</p>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <p class="chart-title">Conversion Rate: Control vs Treatment</p>
+      <canvas id="overview-chart" height="90"></canvas>
+    </div>
+  </section>
+
+  <!--
+       SECTION 3 — STATISTICAL RESULTS
+        -->
+  <section class="section hidden reveal" id="section-stats">
+    <p class="section-label">Section 03</p>
+    <h2 class="section-heading">Statistical Results</h2>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('freq')">Frequentist</button>
+      <button class="tab-btn" onclick="switchTab('bayes')">Bayesian</button>
+    </div>
+
+    <!-- FREQUENTIST TAB -->
+    <div class="tab-panel active" id="tab-freq">
+
+      <!-- Verdict box -->
+      <div class="verdict" id="freq-verdict">
+        <p class="verdict-text" id="freq-verdict-text">Computing…</p>
+        <p class="verdict-meta" id="freq-verdict-meta"></p>
+      </div>
+
+      <div class="two-col">
+        <!-- CI chart -->
+        <div class="chart-wrap" style="margin-top:0">
+          <p class="chart-title">95% Confidence Intervals</p>
+          <canvas id="ci-chart" height="120"></canvas>
+          <p id="ci-overlap-note" style="font-size:.8rem;color:var(--muted);margin-top:8px;"></p>
+        </div>
+
+        <!-- P-value visual -->
+        <div class="chart-wrap" style="margin-top:0">
+          <p class="chart-title">P-Value Position</p>
+          <div class="pval-bar-wrap">
+            <div style="position:relative;margin-top:20px;">
+              <span class="pval-alpha-label">α = 0.05</span>
+              <div class="pval-track">
+                <div class="pval-sig-region" id="pval-sig-region" style="width:5%"></div>
+                <div class="pval-alpha-line"></div>
+                <div class="pval-marker" id="pval-marker" style="left:50%"></div>
+              </div>
+            </div>
+            <div class="pval-labels"><span>0</span><span>1.0</span></div>
+          </div>
+          <p class="pval-plain" id="pval-plain"></p>
+        </div>
+      </div>
+
+      <!-- Effect size -->
+      <div class="card" style="margin-bottom:16px;">
+        <p class="card-label">Cohen's h — Effect Size</p>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+          <span class="card-value" id="cohens-h-val" style="font-size:1.5rem">—</span>
+          <span class="badge" id="effect-badge">—</span>
+        </div>
+        <div id="effect-callout" class="callout callout-warn hidden" style="margin-top:12px;font-size:.83rem;">
+          <strong>Note:</strong> Statistical significance does not equal practical significance — the observed effect may not justify the cost of deployment.
+        </div>
+      </div>
+
+      <!-- Observed power -->
+      <div class="card">
+        <p class="card-label">Observed Power</p>
+        <div class="power-bar-wrap">
+          <div style="display:flex;justify-content:space-between;font-size:.83rem;">
+            <span id="power-label">—</span>
+            <span id="power-pct" style="font-weight:600">—</span>
+          </div>
+          <div class="power-track"><div class="power-fill" id="power-fill" style="width:0%"></div></div>
+          <p style="font-size:.82rem;color:var(--muted)" id="power-note">—</p>
+        </div>
+      </div>
+
+    </div><!-- end freq tab -->
+
+    <!-- BAYESIAN TAB -->
+    <div class="tab-panel" id="tab-bayes">
+
+      <div class="verdict" id="bayes-verdict">
+        <p class="verdict-text" id="bayes-verdict-text">Running simulation…</p>
+        <p class="verdict-meta" id="bayes-verdict-meta"></p>
+      </div>
+
+      <div class="two-col">
+        <!-- Posterior curves -->
+        <div class="chart-wrap" style="margin-top:0">
+          <p class="chart-title">Posterior Distributions (Beta)</p>
+          <canvas id="posterior-chart" height="160"></canvas>
+        </div>
+
+        <!-- Gauge -->
+        <div class="chart-wrap" style="margin-top:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <p class="chart-title" style="align-self:flex-start">Probability New Page Wins</p>
+          <div class="gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 200 130" id="gauge-svg">
+              <!-- Background arc -->
+              <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="#E2E0DB" stroke-width="18" stroke-linecap="round"/>
+              <!-- Coloured arc (drawn by JS) -->
+              <path id="gauge-arc" d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="#E2E0DB" stroke-width="18" stroke-linecap="round"/>
+            </svg>
+            <p class="gauge-number" id="gauge-pct">—%</p>
+            <p class="gauge-label">Probability new page is better</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expected loss table -->
+      <div class="chart-wrap">
+        <p class="chart-title">Expected Loss (lower is better)</p>
+        <table class="loss-table">
+          <thead>
+            <tr><th>Decision</th><th>Expected Loss</th><th>Interpretation</th></tr>
+          </thead>
+          <tbody>
+            <tr id="loss-deploy"><td>Deploy new page</td><td id="loss-deploy-val">—</td><td id="loss-deploy-int">—</td></tr>
+            <tr id="loss-keep"><td>Keep control</td><td id="loss-keep-val">—</td><td id="loss-keep-int">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- end bayes tab -->
+  </section>
+
+  <!-- 
+       SECTION 4 — AI INTERPRETATION
+       -->
+  <section class="section hidden reveal" id="section-ai">
+    <p class="section-label">AI Interpretation</p>
+    <h2 class="section-heading">What does this mean for your business?</h2>
+
+    <!-- State A: No key -->
+    <div id="ai-state-a" class="ai-box">
+      <div class="ai-icon">🤖</div>
+      <h3>Claude AI Interpretation</h3>
+      <p>This feature generates a plain-English business recommendation by sending your statistical results to Claude — Anthropic's AI model. Your experiment data is never sent, only the summary metrics.</p>
+      <input type="password" class="key-input" id="api-key-input" placeholder="Enter your Anthropic API key (sk-ant-...)"/>
+      <p class="key-hint">
+        <a href="#" target="_blank"><!-- EDIT: replace with real URL -->Get a free API key at console.anthropic.com →</a><br/>
+        <span style="color:var(--muted)">New accounts include free credits. Your key is used client-side only — never stored or sent anywhere except directly to Anthropic's API.</span>
+      </p>
+      <button class="btn btn-accent" style="width:100%;justify-content:center;margin-bottom:16px;" onclick="generateAI()">Generate Interpretation</button>
+      <div class="divider-or">or</div>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="document.getElementById('section-rec').scrollIntoView({behavior:'smooth'})">Skip — view recommendation below ↓</button>
+    </div>
+
+    <!-- State B: Loading -->
+    <div id="ai-state-b" class="hidden ai-loading">
+      <p style="font-size:1rem;font-weight:500;">Analysing your experiment results<span class="dots" id="dots"></span></p>
+      <p style="font-size:.85rem;color:var(--muted);margin-top:8px;">Claude is reading your statistical results…</p>
+    </div>
+
+    <!-- State C: Response -->
+    <div id="ai-state-c" class="hidden">
+      <div class="ai-response" id="ai-response-body"></div>
+      <span class="ai-badge">Powered by Claude · claude-sonnet-4-20250514</span>
+    </div>
+
+    <!-- State D: Error -->
+    <div id="ai-state-d" class="hidden ai-error">
+      <h4>Could not generate interpretation</h4>
+      <p id="ai-error-msg">An error occurred.</p>
+      <ul>
+        <li>· Check your API key is correct (starts with sk-ant-)</li>
+        <li>· Ensure you have credits at console.anthropic.com</li>
+        <li>· The JS-generated recommendation below covers the same ground</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 
+       SECTION 5 — RECOMMENDATION
+        -->
+  <section class="section hidden reveal" id="section-rec">
+    <p class="section-label">Section 05</p>
+    <h2 class="section-heading">Recommendation</h2>
+
+    <div class="memo">
+      <p class="memo-header">Executive Memo · A/B Test Results Summary</p>
+      <p class="memo-headline" id="rec-headline">—</p>
+      <p class="memo-body" id="rec-body">—</p>
+      <ul class="memo-steps" id="rec-steps"></ul>
+    </div>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <span>A/B Test Analyser · Project 04 · Udacity A/B Testing Dataset · Part of a Data &amp; Business Analyst Portfolio</span>
+  <a href="../index.html"><!-- EDIT: replace with real URL -->← Back to Portfolio</a>
+</footer>
+
+<script>
+/* GLOBAL STATE */
+let stats = {};          // holds all computed statistics
+let charts = {};         // Chart.js instances keyed by name
+let dotsInterval = null; // for the loading dots animation
+
+/* SCROLL REVEAL — IntersectionObserver */
+const revealObserver = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      revealObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.08 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+/* FILE INPUT + DRAG AND DROP */
+const fileInput = document.getElementById('file-input');
+const dropZone  = document.getElementById('drop-zone');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) processCSVFile(e.target.files[0]);
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processCSVFile(file);
+});
+
+/* PARSE CSV FILE WITH PAPAPARSE */
+function processCSVFile(file) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: results => runETL(results.data),
+    error: err => alert('CSV parse error: ' + err.message)
+  });
+}
+
+/* SAMPLE DATA GENERATOR */
+function loadSampleData() {
+  const rows = [];
+  const start = new Date('2024-01-01').getTime();
+  const end   = new Date('2024-01-15').getTime();
+  let uid = 10001;
+
+  function randTs() {
+    const t = new Date(start + Math.random() * (end - start));
+    return t.toISOString().replace('T', ' ').slice(0, 19);
+  }
+
+  // 250 control rows: 30 converted, 220 not
+  for (let i = 0; i < 250; i++) {
+    rows.push({
+      user_id: uid++, timestamp: randTs(),
+      group: 'control', landing_page: 'old_page',
+      converted: i < 30 ? '1' : '0'
+    });
+  }
+  // 250 treatment rows: 29 converted, 221 not
+  for (let i = 0; i < 250; i++) {
+    rows.push({
+      user_id: uid++, timestamp: randTs(),
+      group: 'treatment', landing_page: 'new_page',
+      converted: i < 29 ? '1' : '0'
+    });
+  }
+  // 10 mismatch rows: 5 control/new_page, 5 treatment/old_page
+  for (let i = 0; i < 5; i++) {
+    rows.push({ user_id: uid++, timestamp: randTs(), group: 'control',   landing_page: 'new_page', converted: '0' });
+    rows.push({ user_id: uid++, timestamp: randTs(), group: 'treatment', landing_page: 'old_page', converted: '0' });
+  }
+
+  // Shuffle so mismatches are not all at the end
+  for (let i = rows.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+  }
+
+  runETL(rows);
+}
+
+/* ETL PIPELINE */
+function runETL(rawRows) {
+  // Show ETL panel, reset cards
+  document.getElementById('etl-steps').style.display = 'block';
+  document.getElementById('quality-cards').classList.add('hidden');
+  document.getElementById('mismatch-callout').classList.add('hidden');
+
+  // Reset step icons
+  ['s1-icon','s2-icon','s3-icon','s4-icon'].forEach(id => {
+    document.getElementById(id).textContent = '⏳';
+  });
+  ['step-extract','step-validate','step-transform','step-ready'].forEach(id => {
+    document.getElementById(id).classList.remove('active','done');
+  });
+
+  let processed = { raw: 0, mismatches: 0, dupes: 0, clean: [], control: [], treatment: [] };
+
+  // Step 1 — EXTRACT (t=0ms)
+  activateStep('step-extract');
+  setTimeout(() => {
+    processed.raw = rawRows.length;
+    completeStep('step-extract', 's1-icon');
+
+    // Step 2 — VALIDATE (t=400ms)
+    activateStep('step-validate');
+    setTimeout(() => {
+      // Remove mismatches: control+new_page OR treatment+old_page
+      const valid = rawRows.filter(r => {
+        const g = (r.group || '').trim().toLowerCase();
+        const p = (r.landing_page || '').trim().toLowerCase();
+        return (g === 'control' && p === 'old_page') || (g === 'treatment' && p === 'new_page');
+      });
+      processed.mismatches = rawRows.length - valid.length;
+
+      // Remove duplicates: keep first occurrence per user_id
+      const seen = new Set();
+      const deduped = valid.filter(r => {
+        const id = String(r.user_id).trim();
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      processed.dupes = valid.length - deduped.length;
+
+      completeStep('step-validate', 's2-icon');
+
+      // Step 3 — TRANSFORM (t=800ms)
+      activateStep('step-transform');
+      setTimeout(() => {
+        processed.clean = deduped;
+        processed.control   = deduped.filter(r => (r.group||'').trim().toLowerCase() === 'control');
+        processed.treatment = deduped.filter(r => (r.group||'').trim().toLowerCase() === 'treatment');
+        completeStep('step-transform', 's3-icon');
+
+        // Step 4 — READY (t=1200ms)
+        activateStep('step-ready');
+        setTimeout(() => {
+          completeStep('step-ready', 's4-icon');
+          finaliseAnalysis(processed);
+        }, 400);
+      }, 400);
+    }, 400);
+  }, 400);
+}
+
+function activateStep(id) {
+  document.getElementById(id).classList.add('active');
+}
+function completeStep(stepId, iconId) {
+  const el = document.getElementById(stepId);
+  el.classList.remove('active');
+  el.classList.add('done');
+  document.getElementById(iconId).textContent = '✅';
+}
+
+/* FINALISE ANALYSIS — populate all sections */
+function finaliseAnalysis(d) {
+  const { raw, mismatches, dupes, control, treatment } = d;
+
+  // Guard: zero group check
+  if (control.length === 0 || treatment.length === 0) {
+    alert('After cleaning, one group has zero rows. Check your CSV has valid control/treatment data.');
+    return;
+  }
+
+  const n1 = control.length;
+  const n2 = treatment.length;
+  const x1 = control.filter(r => String(r.converted).trim() === '1').length;
+  const x2 = treatment.filter(r => String(r.converted).trim() === '1').length;
+
+  // Guard: zero conversions
+  if (x1 === 0 || x2 === 0) {
+    const div = document.createElement('div');
+    div.className = 'callout callout-warn';
+    div.innerHTML = '<strong>Warning:</strong> One group has zero conversions. Statistical tests may be unreliable. Results are shown but interpret with caution.';
+    document.getElementById('quality-cards').insertAdjacentElement('afterend', div);
+  }
+
+  const p1 = x1 / n1;
+  const p2 = x2 / n2;
+
+  // ---- Frequentist computations ----
+  const p_pool = (x1 + x2) / (n1 + n2);
+  const se     = Math.sqrt(p_pool * (1 - p_pool) * (1/n1 + 1/n2));
+  // Protect against degenerate SE
+  const z      = se > 0 ? (p2 - p1) / se : 0;
+  const pValue = 2 * (1 - normalCDF(Math.abs(z)));
+  const isSignificant = pValue < 0.05;
+
+  // 95% confidence intervals
+  const se1        = Math.sqrt(p1*(1-p1)/n1);
+  const se2        = Math.sqrt(p2*(1-p2)/n2);
+  const ci1        = [Math.max(0, p1 - 1.96*se1), Math.min(1, p1 + 1.96*se1)];
+  const ci2        = [Math.max(0, p2 - 1.96*se2), Math.min(1, p2 + 1.96*se2)];
+  const ciOverlap  = ci1[1] > ci2[0] && ci2[1] > ci1[0];
+
+  // Cohen's h
+  const cohensH    = 2*Math.asin(Math.sqrt(Math.max(0,p2))) - 2*Math.asin(Math.sqrt(Math.max(0,p1)));
+  const absCohensH = Math.abs(cohensH);
+  const effectLabel = absCohensH < 0.2 ? 'Negligible' : absCohensH < 0.5 ? 'Small' : absCohensH < 0.8 ? 'Medium' : 'Large';
+
+  // Observed power ≈ normalCDF(|z| - 1.96)
+  const power = normalCDF(Math.abs(z) - 1.96);
+
+  // Sample size needed (80% power)
+  const absDiff = Math.max(Math.abs(p2-p1), 0.001);
+  const required_n = Math.ceil(2 * Math.pow((1.96+0.84)/absDiff, 2) * p_pool * (1-p_pool));
+
+  // Store globally for AI call
+  stats = { n1, n2, x1, x2, p1, p2, pValue, z, isSignificant, cohensH, absCohensH, effectLabel,
+            power, ci1, ci2, ciOverlap, p_pool, required_n,
+            absLift: p2-p1, relLift: p1 > 0 ? (p2-p1)/p1 : 0 };
+
+  // ---- Render quality cards ----
+  document.getElementById('q-raw').textContent    = raw.toLocaleString();
+  document.getElementById('q-mismatch').textContent = mismatches.toLocaleString();
+  document.getElementById('q-mismatch-pct').textContent = `${((mismatches/raw)*100).toFixed(1)}% of total`;
+  document.getElementById('q-dupes').textContent  = dupes.toLocaleString();
+  document.getElementById('q-clean').textContent  = (n1+n2).toLocaleString();
+  document.getElementById('quality-cards').classList.remove('hidden');
+  document.getElementById('mismatch-callout').classList.remove('hidden');
+
+  // ---- Reveal all sections ----
+  ['section-overview','section-stats','section-ai','section-rec'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('hidden');
+    revealObserver.observe(el);
+  });
+
+  renderOverview();
+  renderFrequentist();
+  runBayesian(n1, n2, x1, x2);  // async-feeling; uses setTimeout to not block UI
+  renderRecommendation();
+}
+
+/* normalCDF — Abramowitz & Stegun approximation */
+function normalCDF(x) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.7814779 + t * (-1.8212560 + t * 1.3302744))));
+  return x > 0 ? 1 - p : p;
+}
+
+/* SECTION 2 — OVERVIEW */
+function renderOverview() {
+  const { n1, n2, p1, p2, absLift, relLift } = stats;
+
+  document.getElementById('ov-c-n').textContent    = n1.toLocaleString() + ' users';
+  document.getElementById('ov-c-rate').textContent  = (p1*100).toFixed(2) + '% conversion';
+  document.getElementById('ov-t-n').textContent    = n2.toLocaleString() + ' users';
+  document.getElementById('ov-t-rate').textContent  = (p2*100).toFixed(2) + '% conversion';
+
+  const absEl = document.getElementById('ov-abs');
+  absEl.textContent = (absLift >= 0 ? '+' : '') + (absLift*100).toFixed(3) + '%';
+  absEl.className   = 'card-value ' + (absLift > 0 ? 'card-positive' : 'card-negative');
+
+  const relEl = document.getElementById('ov-rel');
+  relEl.textContent = (relLift >= 0 ? '+' : '') + (relLift*100).toFixed(1) + '%';
+  relEl.className   = 'card-value ' + (relLift > 0 ? 'card-positive' : 'card-negative');
+
+  // Destroy existing chart instance if re-running
+  if (charts.overview) charts.overview.destroy();
+  const ctx = document.getElementById('overview-chart').getContext('2d');
+  charts.overview = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Control', 'Treatment'],
+      datasets: [{
+        label: 'Conversion Rate',
+        data: [+(p1*100).toFixed(4), +(p2*100).toFixed(4)],
+        backgroundColor: ['#6B6B6B', '#1A5CFF'],
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        annotation: {},
+        datalabels: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(4)}%` }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => v + '%' },
+          grid: { color: '#E2E0DB' }
+        },
+        x: { grid: { display: false } }
+      }
+    },
+    plugins: [{
+      id: 'referenceLineAndLabels',
+      afterDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        const y = scales.y.getPixelForValue(p1 * 100);
+        // Dashed reference line at control rate
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = '#6B6B6B';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, y);
+        ctx.lineTo(chartArea.right, y);
+        ctx.stroke();
+        ctx.restore();
+        // Annotate bars with % values
+        chart.data.datasets[0].data.forEach((val, i) => {
+          const meta = chart.getDatasetMeta(0);
+          const bar  = meta.data[i];
+          ctx.save();
+          ctx.fillStyle = '#0D0D0D';
+          ctx.font = '600 13px DM Sans, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(val.toFixed(2) + '%', bar.x, bar.y - 8);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+}
+
+/* SECTION 3 — FREQUENTIST */
+function renderFrequentist() {
+  const { p1, p2, pValue, z, isSignificant, cohensH, absCohensH, effectLabel,
+          power, ci1, ci2, ciOverlap, required_n } = stats;
+
+  // Verdict box
+  const verdictEl   = document.getElementById('freq-verdict');
+  const verdictText = document.getElementById('freq-verdict-text');
+  const verdictMeta = document.getElementById('freq-verdict-meta');
+
+  if (isSignificant && p2 > p1) {
+    verdictEl.className   = 'verdict verdict-positive';
+    verdictText.textContent = '✅ The new page performs significantly better.';
+  } else if (isSignificant && p2 < p1) {
+    verdictEl.className   = 'verdict verdict-negative';
+    verdictText.textContent = '❌ The new page performs significantly worse.';
+  } else {
+    verdictEl.className   = 'verdict verdict-neutral';
+    verdictText.textContent = '⏸ No statistically significant difference detected.';
+  }
+  verdictMeta.textContent = `p = ${pValue.toFixed(4)} · z = ${z.toFixed(3)} · α = 0.05`;
+
+  // CI chart — horizontal error bar representation
+  if (charts.ci) charts.ci.destroy();
+  const ciCtx = document.getElementById('ci-chart').getContext('2d');
+  charts.ci = new Chart(ciCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Control', 'Treatment'],
+      datasets: [
+        // Error bar lower whisker (negative offset from point)
+        {
+          label: 'CI Lower',
+          data: [+(p1*100).toFixed(4), +(p2*100).toFixed(4)],
+          backgroundColor: 'transparent',
+          borderColor: 'transparent',
+        },
+        {
+          label: 'Point estimate',
+          data: [+(p1*100).toFixed(4), +(p2*100).toFixed(4)],
+          backgroundColor: ['#6B6B6B', '#1A5CFF'],
+          borderRadius: 4,
+          borderSkipped: false,
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.parsed.x.toFixed(4)}% (95% CI: [${(ctx.dataIndex===0?ci1:ci2)[0]*100|0}.${String(Math.round((ctx.dataIndex===0?ci1:ci2)[0]*10000)%100).padStart(2,'0')}%, ${(ctx.dataIndex===0?ci1:ci2)[1]*100|0}%])`
+      }}},
+      scales: {
+        x: { ticks: { callback: v => v + '%' }, grid: { color: '#E2E0DB' } },
+        y: { grid: { display: false } }
+      }
+    },
+    plugins: [{
+      id: 'errorBars',
+      afterDraw(chart) {
+        const { ctx, scales } = chart;
+        const cis = [ci1, ci2];
+        chart.getDatasetMeta(1).data.forEach((bar, i) => {
+          const lo = scales.x.getPixelForValue(cis[i][0]*100);
+          const hi = scales.x.getPixelForValue(cis[i][1]*100);
+          const cy = bar.y;
+          ctx.save();
+          ctx.strokeStyle = i === 0 ? '#6B6B6B' : '#1A5CFF';
+          ctx.lineWidth = 2;
+          // Horizontal line
+          ctx.beginPath(); ctx.moveTo(lo, cy); ctx.lineTo(hi, cy); ctx.stroke();
+          // Caps
+          [[lo],[hi]].forEach(([px]) => {
+            ctx.beginPath(); ctx.moveTo(px, cy-6); ctx.lineTo(px, cy+6); ctx.stroke();
+          });
+          ctx.restore();
+        });
+      }
+    }]
+  });
+
+  document.getElementById('ci-overlap-note').textContent =
+    ciOverlap ? 'Overlapping confidence intervals — result is inconclusive.' : 'Non-overlapping confidence intervals — stronger evidence of a real difference.';
+
+  // P-value visual
+  const pct = Math.min(pValue, 1) * 100;
+  document.getElementById('pval-marker').style.left = pct + '%';
+  document.getElementById('pval-plain').textContent =
+    `There is a ${(pValue*100).toFixed(1)}% chance of seeing a result at least this extreme if the pages performed identically.`;
+
+  // Cohen's h
+  document.getElementById('cohens-h-val').textContent = cohensH.toFixed(3);
+  const badge = document.getElementById('effect-badge');
+  badge.textContent = effectLabel;
+  badge.className = 'badge badge-' + effectLabel.toLowerCase();
+  // If significant but negligible effect — show practical significance warning
+  if (stats.isSignificant && absCohensH < 0.2) {
+    document.getElementById('effect-callout').classList.remove('hidden');
+  }
+
+  // Power
+  const powerPct = Math.round(power * 100);
+  document.getElementById('power-pct').textContent = powerPct + '%';
+  document.getElementById('power-label').textContent = 'Observed power';
+  const fill = document.getElementById('power-fill');
+  fill.style.width = Math.min(powerPct, 100) + '%';
+  fill.className = 'power-fill ' + (powerPct >= 80 ? 'power-green' : powerPct >= 60 ? 'power-amber' : 'power-red');
+  document.getElementById('power-note').textContent =
+    `Your test is ${powerPct >= 80 ? 'adequately' : 'not adequately'} powered.`;
+}
+
+/* SECTION 3 — BAYESIAN */
+function runBayesian(n1, n2, x1, x2) {
+  // Run 50,000 iterations in chunks to keep UI responsive
+  const TOTAL_ITERS = 50000;
+  const CHUNK       = 5000;
+  let   probBetterCount = 0;
+  let   done = 0;
+
+  // Collect samples for expected loss calculation
+  const controlSamples = [];
+  const treatSamples   = [];
+
+  function chunk() {
+    const end = Math.min(done + CHUNK, TOTAL_ITERS);
+    for (let i = done; i < end; i++) {
+      const c = sampleBeta(1 + x1, 1 + n1 - x1);
+      const t = sampleBeta(1 + x2, 1 + n2 - x2);
+      if (t > c) probBetterCount++;
+      controlSamples.push(c);
+      treatSamples.push(t);
+    }
+    done = end;
+    if (done < TOTAL_ITERS) {
+      setTimeout(chunk, 0);
+    } else {
+      finaliseBayesian(probBetterCount / TOTAL_ITERS, controlSamples, treatSamples);
+    }
+  }
+  chunk();
+}
+
+function finaliseBayesian(probBetter, cSamples, tSamples) {
+  stats.probBetter = probBetter;
+
+  // ---- Verdict ----
+  const bvEl   = document.getElementById('bayes-verdict');
+  const bvText = document.getElementById('bayes-verdict-text');
+  const bvMeta = document.getElementById('bayes-verdict-meta');
+
+  if (probBetter > 0.95) {
+    bvEl.className = 'verdict verdict-positive';
+    bvText.textContent = '✅ Strong evidence the new page is better.';
+  } else if (probBetter > 0.80) {
+    bvEl.className = 'verdict verdict-positive';
+    bvText.textContent = '🟡 Moderate evidence the new page is better.';
+  } else if (probBetter > 0.50) {
+    bvEl.className = 'verdict verdict-neutral';
+    bvText.textContent = '⏸ Slight lean toward new page — inconclusive.';
+  } else {
+    bvEl.className = 'verdict verdict-negative';
+    bvText.textContent = '❌ Evidence favours the control page.';
+  }
+  bvMeta.textContent = `P(treatment > control) = ${(probBetter*100).toFixed(1)}% · 50,000 Monte Carlo samples`;
+
+  // ---- Posterior curves ----
+  const { x1, x2, n1, n2 } = stats;
+  const a1 = 1 + x1, b1 = 1 + n1 - x1;
+  const a2 = 1 + x2, b2 = 1 + n2 - x2;
+
+  const lo = Math.max(0, Math.min(stats.p1, stats.p2) - 0.06);
+  const hi = Math.min(1, Math.max(stats.p1, stats.p2) + 0.06);
+  const pts = 200;
+  const xs  = Array.from({length: pts}, (_, i) => lo + (hi - lo) * i / (pts-1));
+  const y1  = xs.map(x => betaPDF(x, a1, b1));
+  const y2  = xs.map(x => betaPDF(x, a2, b2));
+
+  if (charts.posterior) charts.posterior.destroy();
+  const pCtx = document.getElementById('posterior-chart').getContext('2d');
+  charts.posterior = new Chart(pCtx, {
+    type: 'line',
+    data: {
+      labels: xs.map(x => (x*100).toFixed(2) + '%'),
+      datasets: [
+        {
+          label: 'Control', data: y1,
+          borderColor: '#6B6B6B', backgroundColor: 'rgba(107,107,107,.15)',
+          fill: true, pointRadius: 0, tension: 0.4, borderWidth: 2
+        },
+        {
+          label: 'Treatment', data: y2,
+          borderColor: '#1A5CFF', backgroundColor: 'rgba(26,92,255,.15)',
+          fill: true, pointRadius: 0, tension: 0.4, borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { font: { family: 'DM Sans' } } },
+        tooltip: { callbacks: { title: ctx => 'Rate: ' + ctx[0].label } }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8 }, grid: { color: '#E2E0DB' } },
+        y: { title: { display: true, text: 'Probability density' }, grid: { color: '#E2E0DB' } }
+      }
+    },
+    plugins: [{
+      id: 'probAnnotation',
+      afterDraw(chart) {
+        const { ctx, chartArea } = chart;
+        ctx.save();
+        ctx.font = '500 12px DM Sans, sans-serif';
+        ctx.fillStyle = '#1A5CFF';
+        ctx.textAlign = 'right';
+        ctx.fillText(`P(treatment > control) = ${(probBetter*100).toFixed(1)}%`, chartArea.right - 4, chartArea.top + 16);
+        ctx.restore();
+      }
+    }]
+  });
+
+  // ---- Gauge ----
+  drawGauge(probBetter);
+
+  // ---- Expected loss ----
+  // E[loss | deploy new] = E[max(0, p_control - p_treatment)] over samples
+  let lossDeploy = 0, lossKeep = 0;
+  const N = cSamples.length;
+  for (let i = 0; i < N; i++) {
+    lossDeploy += Math.max(0, cSamples[i] - tSamples[i]);
+    lossKeep   += Math.max(0, tSamples[i] - cSamples[i]);
+  }
+  lossDeploy /= N;
+  lossKeep   /= N;
+
+  const deployBetter = lossDeploy < lossKeep;
+  const deployRow = document.getElementById('loss-deploy');
+  const keepRow   = document.getElementById('loss-keep');
+  deployRow.className = deployBetter ? 'highlight' : '';
+  keepRow.className   = !deployBetter ? 'highlight' : '';
+  document.getElementById('loss-deploy-val').textContent = (lossDeploy*100).toFixed(4) + '%';
+  document.getElementById('loss-keep-val').textContent   = (lossKeep*100).toFixed(4) + '%';
+  document.getElementById('loss-deploy-int').textContent = deployBetter ? '✅ Lower loss — favoured' : 'Higher loss';
+  document.getElementById('loss-keep-int').textContent   = !deployBetter ? '✅ Lower loss — favoured' : 'Higher loss';
+}
+
+/* SVG GAUGE */
+function drawGauge(prob) {
+  const pct   = Math.min(Math.max(prob, 0), 1);
+  const colour = pct > 0.95 ? '#1D9E75' : pct > 0.80 ? '#8BC34A' : pct > 0.50 ? '#BA7517' : '#E24B4A';
+
+  // Arc: centre (100,110), radius 80, from 180° to 0° (left to right)
+  const startAngle = Math.PI;          // left
+  const endAngle   = 0;                // right
+  const angle      = startAngle - (startAngle - endAngle) * pct;
+
+  const cx = 100, cy = 110, r = 80;
+  const x  = cx + r * Math.cos(angle);
+  const y  = cy + r * Math.sin(angle);
+  const large = pct > 0.5 ? 1 : 0;
+
+  const d = `M ${cx - r} ${cy} A ${r} ${r} 0 ${large} 1 ${x.toFixed(2)} ${y.toFixed(2)}`;
+  const arc = document.getElementById('gauge-arc');
+  arc.setAttribute('d', pct <= 0 ? `M ${cx-r} ${cy} L ${cx-r} ${cy}` : d);
+  arc.setAttribute('stroke', colour);
+
+  document.getElementById('gauge-pct').textContent = (prob*100).toFixed(1) + '%';
+  document.getElementById('gauge-pct').style.color  = colour;
+}
+
+/* BETA PDF  (Lanczos log-gamma) */
+function logGamma(n) {
+  if (n < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * n)) - logGamma(1 - n);
+  n -= 1;
+  const g = 7;
+  const C = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  let x = C[0];
+  for (let i = 1; i < g + 2; i++) x += C[i] / (n + i);
+  const t = n + g + 0.5;
+  return 0.5*Math.log(2*Math.PI) + (n+0.5)*Math.log(t) - t + Math.log(x);
+}
+
+function logBeta(a, b) { return logGamma(a) + logGamma(b) - logGamma(a + b); }
+
+function betaPDF(x, a, b) {
+  if (x <= 0 || x >= 1) return 0;
+  return Math.exp((a-1)*Math.log(x) + (b-1)*Math.log(1-x) - logBeta(a, b));
+}
+
+/* GAMMA / BETA SAMPLING — Marsaglia & Tsang */
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function sampleGamma(shape) {
+  if (shape < 1) return sampleGamma(1 + shape) * Math.pow(Math.random(), 1/shape);
+  const d = shape - 1/3;
+  const c = 1 / Math.sqrt(9 * d);
+  while (true) {
+    let x, v;
+    do { x = randn(); v = 1 + c * x; } while (v <= 0);
+    v = v * v * v;
+    const u = Math.random();
+    if (u < 1 - 0.0331*(x*x)*(x*x)) return d * v;
+    if (Math.log(u) < 0.5*x*x + d*(1 - v + Math.log(v))) return d * v;
+  }
+}
+
+function sampleBeta(a, b) {
+  const x = sampleGamma(a), y = sampleGamma(b);
+  return x / (x + y);
+}
+
+/* TABS */
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    const names = ['freq','bayes'];
+    btn.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+/* SECTION 5 — JS-GENERATED RECOMMENDATION */
+function renderRecommendation() {
+  const { n1, n2, p1, p2, pValue, isSignificant, absLift, relLift, required_n } = stats;
+
+  const headline = document.getElementById('rec-headline');
+  const body     = document.getElementById('rec-body');
+  const stepsEl  = document.getElementById('rec-steps');
+
+  const ctrl  = (p1*100).toFixed(2);
+  const treat = (p2*100).toFixed(2);
+  const lift  = (Math.abs(absLift)*100).toFixed(3);
+  const rel   = (Math.abs(relLift)*100).toFixed(1);
+
+  if (isSignificant && p2 > p1) {
+    headline.textContent = `✅ DEPLOY — The new page converts at ${treat}% vs ${ctrl}% for the control (absolute lift: +${lift}%, relative lift: +${rel}%).`;
+    body.textContent = 'Both statistical approaches support deployment. The frequentist test confirms significance (p < 0.05) and the Bayesian simulation finds a high probability the new page outperforms the control.';
+    stepsEl.innerHTML = `
+      <li><span class="step-num">1</span>Ramp deployment gradually — start at 10% traffic, monitor key metrics before full rollout.</li>
+      <li><span class="step-num">2</span>Define guardrail metrics (bounce rate, revenue per user) to catch unexpected regressions.</li>
+      <li><span class="step-num">3</span>Document the experiment in your test log and schedule a 30-day post-launch conversion review.</li>`;
+  } else if (pValue >= 0.05) {
+    headline.textContent = `⏸️ CONTINUE TESTING — No significant difference detected at current sample size.`;
+    body.textContent = `Current sample: ${n1.toLocaleString()} users per group. To detect the observed effect at 80% power you need approximately ${required_n.toLocaleString()} users per group. Recommendation: run the test longer or redesign the variant.`;
+    stepsEl.innerHTML = `
+      <li><span class="step-num">1</span>Calculate the required sample size (≈${required_n.toLocaleString()} per group) and estimate how long it will take to reach it at current traffic.</li>
+      <li><span class="step-num">2</span>Review the variant design — small p-values with negligible effects sometimes indicate a poorly differentiated variant.</li>
+      <li><span class="step-num">3</span>Set a decision date now to avoid indefinite running ("peaking" inflates false-positive rate).</li>`;
+  } else {
+    headline.textContent = `❌ DO NOT DEPLOY — The new page performs significantly worse (${treat}% vs ${ctrl}% conversion).`;
+    body.textContent = 'The frequentist test shows statistical significance in the wrong direction. Rolling out this variant would likely reduce revenue. Investigate the variant design before retesting.';
+    stepsEl.innerHTML = `
+      <li><span class="step-num">1</span>Conduct a qualitative review of the new page — user testing, heatmaps, or session recordings to identify friction points.</li>
+      <li><span class="step-num">2</span>Hypothesise why performance dropped; redesign the variant addressing those root causes.</li>
+      <li><span class="step-num">3</span>Before the next test, pre-register your hypothesis and primary metric to reduce bias.</li>`;
+  }
+}
+
+/* SECTION 4 — AI INTERPRETATION */
+function generateAI() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { alert('Please enter your Anthropic API key.'); return; }
+
+  const { n1, n2, p1, p2, pValue, isSignificant, cohensH, effectLabel, probBetter, power, absLift } = stats;
+
+  // Show loading state
+  showAIState('b');
+  startDots();
+
+  const prompt = `You are a senior data analyst presenting A/B test results to a business stakeholder who is not a statistician.
+
+Results:
+- Control: ${n1} users, ${(p1*100).toFixed(2)}% conversion
+- Treatment: ${n2} users, ${(p2*100).toFixed(2)}% conversion
+- Absolute lift: ${((p2-p1)*100).toFixed(3)}%
+- p-value: ${pValue.toFixed(4)} (significant: ${isSignificant})
+- Cohen's h: ${(cohensH||0).toFixed(3)} (${effectLabel})
+- Bayesian P(treatment better): ${probBetter !== undefined ? (probBetter*100).toFixed(1) : 'pending'}%
+- Observed power: ${Math.round(power*100)}%
+
+Write 3 short paragraphs:
+1. Clear verdict in one sentence
+2. What the numbers mean in plain English
+3. Specific recommendation and 2 concrete next steps
+
+No jargon. No formulas. Use markdown headers.`;
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 600,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  })
+  .then(res => {
+    if (!res.ok) return res.json().then(d => { throw new Error(d.error?.message || 'API error ' + res.status); });
+    return res.json();
+  })
+  .then(data => {
+    stopDots();
+    const text = data.content?.[0]?.text || '';
+    showAIState('c');
+    document.getElementById('ai-response-body').innerHTML = markdownToHTML(text);
+  })
+  .catch(err => {
+    stopDots();
+    document.getElementById('ai-error-msg').textContent = err.message;
+    showAIState('d');
+  });
+}
+
+function showAIState(state) {
+  ['a','b','c','d'].forEach(s => {
+    const el = document.getElementById('ai-state-' + s);
+    if (el) el.classList.toggle('hidden', s !== state);
+  });
+}
+
+function startDots() {
+  let count = 0;
+  const el = document.getElementById('dots');
+  dotsInterval = setInterval(() => {
+    count = (count + 1) % 4;
+    el.textContent = '.'.repeat(count);
+  }, 400);
+}
+function stopDots() {
+  clearInterval(dotsInterval);
+}
+
+/* MINIMAL MARKDOWN → HTML (for AI response) */
+function markdownToHTML(md) {
+  return md
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>')
+    .replace(/\n\n+/g, '</p><p>')
+    .replace(/^(?!<[hul])(.+)$/gm, (_, line) => line ? line : '')
+    .replace(/^(<p>)?([^<\n][^\n]*)$/gm, '<p>$2</p>');
+}
+</script>
+</body>
+</html>

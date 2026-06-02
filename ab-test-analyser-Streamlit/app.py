@@ -119,9 +119,10 @@ def build_app() -> None:
     n_sim = st.sidebar.selectbox("Number of Bayesian simulations", [10000, 50000, 100000], index=2)
 
     if use_kaggle:
-        data_path = Path("data/raw/ab_data.csv")
+        _here = Path(__file__).parent
+        data_path = _here / "data/raw/ab_data.csv"
         if not data_path.exists():
-            fallback = Path("ab_data.csv")
+            fallback = _here / "ab_data.csv"
             data_path = fallback if fallback.exists() else data_path
         if not data_path.exists():
             st.error("Dataset not found. Place `ab_data.csv` in `data/raw/` or upload a CSV.")
